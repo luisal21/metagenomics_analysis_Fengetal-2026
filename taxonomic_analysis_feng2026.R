@@ -32,4 +32,26 @@ unique(merged_metagenomes@tax_table@.Data[,"Phylum"])
 # Visualize the OTU table
 View(merged_metagenomes@otu_table@.Data)
 
-# 
+# Statistics of our metagenomes
+merged_metagenomes
+sample_sums(merged_metagenomes)
+summary(merged_metagenomes@otu_table@.Data)
+
+#
+plot_richness(physeq = merged_metagenomes, 
+              measures = c("Observed","Chao1","Shannon")) 
+
+plot_richness(physeq = merged_metagenomes, 
+              measures = "Observed") 
+
+#
+summary(merged_metagenomes@tax_table@.Data== "")
+
+merged_metagenomes <- subset_taxa(merged_metagenomes, Genus != "") #Only genus that are no blank
+summary(merged_metagenomes@tax_table@.Data== "")
+
+
+head(merged_metagenomes@otu_table@.Data)
+
+percentages <- transform_sample_counts(merged_metagenomes, function(x) x*100 / sum(x) )
+head(percentages@otu_table@.Data)
