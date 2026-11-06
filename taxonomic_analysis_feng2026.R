@@ -76,3 +76,56 @@ meta_ord <- ordinate(physeq = percentages, method = "NMDS",
 # diversity analysis:
 plot_ordination(physeq = percentages, ordination = meta_ord)
 
+### Explore samples at specific taxonomic levels
+# We will start our exploration at the Phylum level. 
+# In order to group all the OTUs that have the same taxonomy at a certain
+# taxonomic rank, we will use the function tax_glom().
+percentages_glom <- tax_glom(percentages, taxrank = 'Phylum')
+
+# Visualize tax table at phylum level
+View(percentages_glom@tax_table@.Data)
+
+# With the command psmelt we convert the phyloseq objects into a data.frame
+percentages_df <- psmelt(percentages_glom)
+str(percentages_df)
+
+
+# Now, let’s create another data frame with the original data. 
+# This structure will help us to compare the absolute with the 
+# relative abundance and have a complete picture of our samples.
+absolute_glom <- tax_glom(physeq = merged_metagenomes, taxrank = "Phylum")
+absolute_df <- psmelt(absolute_glom)
+str(absolute_df)
+
+#
+absolute_df$Phylum <- as.factor(absolute_df$Phylum)
+phylum_colors_abs<- colorRampPalette(brewer.pal(8,"Dark2")) (length(levels(absolute_df$Phylum)))
+
+#
+absolute_plot <- ggplot(data= absolute_df, aes(x=Sample, y=Abundance, fill=Phylum))+ 
+  geom_bar(aes(), stat="identity", position="stack")+
+  scale_fill_manual(values = phylum_colors_abs)
+
+#
+percentages_df$Phylum <- as.factor(percentages_df$Phylum)
+phylum_colors_rel<- colorRampPalette(brewer.pal(8,"Dark2")) (length(levels(percentages_df$Phylum)))
+relative_plot <- ggplot(data=percentages_df, aes(x=Sample, y=Abundance, fill=Phylum))+ 
+  geom_bar(aes(), stat="identity", position="stack")+
+  scale_fill_manual(values = phylum_colors_rel)
+absolute_plot | relative_plot
+
+
+#
+percentages_df$Phylum <- as.character(percentages_df$Phylum) # Return the Phylum column to be of type character
+percentages_df$Phylum[percentages_df$Abundance < 0.5] <- "Phyla < 0.5% abund."
+unique(percentages_df$Phylum)
+
+#
+percentages_df$Phylum <- as.factor(percentages_df$Phylum)
+phylum_colors_rel<- colorRampPalette(brewer.pal(8,"Dark2")) (length(levels(percentages_df$Phylum)))
+relative_plot <- ggplot(data=percentages_df, aes(x=Sample, y=Abundance, fill=Phylum))+ 
+  geom_bar(aes(), stat="identity", position="stack")+
+  scale_fill_manual(values = phylum_colors_rel)
+absolute_plot | relative_plot
+
+
