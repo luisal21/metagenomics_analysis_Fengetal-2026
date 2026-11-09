@@ -172,7 +172,7 @@ genus_glom <- tax_glom(percentages, taxrank = "Genus")
 genus_df <- psmelt(genus_glom)
 
 # Group less abundance groups
-genus_df$Genus[genus_df$Abundance < 10] <- "Genera < 10.0 abund"
+genus_df$Genus[genus_df$Abundance < 5] <- "Genera < 5.0 abund"
 # Convert to factor and create palette
 genus_df$Genus <- as.factor(genus_df$Genus)
 genus_colors <- colorRampPalette(brewer.pal(8,"Dark2")) (length(levels(genus_df$Genus)))  
