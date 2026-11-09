@@ -2,6 +2,8 @@
 # This exercise is part of the research visit of Nadia Vargas, a student from
 # the UNAM School of Veterinary Medicine in the Center for mathematical science.
 
+remotes::install_github("mikemc/speedyseq")
+
 # Loading libraries
 library("phyloseq")
 library("ggplot2")
@@ -16,10 +18,29 @@ setwd("/home/luis/Descargas/Estancia_nadia_metagenomica_CCM/metagenomics_analysi
 merged_metagenomes <- import_biom("feng.biom")
 
 # Verify if we generated the phyloseq object
+merged_metagenomes
 class(merged_metagenomes)
 
-# Visualize the tax table
+# Adding metadata
+samplesdata = read.delim("Feng_metadata.tsv", header = T, row.names = 1)
+head(samplesdata)
+
+### Combine metadata to create a new phyloseq object
+# First, check that sample names match with OTU names
+head(sample_data(merged_metagenomes))
+all(sample_names(merged_metagenomes) %in% rownames(samplesdata))
+setdiff(sample_names(merged_metagenomes), rownames(samplesdata))
+
+# Now we can combine data
+sample_data(merged_metagenomes) <- sample_data(samplesdata)
+merged_metagenomes
+
+summary(sample_sums(merged_metagenomes))
+
+# Visualize the tax table and the otu table
 View(merged_metagenomes@tax_table@.Data)
+View(merged_metagenomes@otu_table@.Data)
+View(merged_metagenomes@sam_data)
 
 # Remove unnecessary characters in .Data (matrix) with the command substring()
 merged_metagenomes@tax_table@.Data <- substring(merged_metagenomes@tax_table@.Data, 4)
@@ -76,6 +97,12 @@ meta_ord <- ordinate(physeq = percentages, method = "NMDS",
 # diversity analysis:
 plot_ordination(physeq = percentages, ordination = meta_ord)
 
+# Now, we add variables from metadata
+# By grupo
+plot_ordination(physeq = percentages, ordination = meta_ord, color = "Grupo")
+# By tiempo
+plot_ordination(physeq = percentages, ordination = meta_ord, color = "Tiempo")
+
 ### Explore samples at specific taxonomic levels
 # We will start our exploration at the Phylum level. 
 # In order to group all the OTUs that have the same taxonomy at a certain
@@ -97,35 +124,62 @@ absolute_glom <- tax_glom(physeq = merged_metagenomes, taxrank = "Phylum")
 absolute_df <- psmelt(absolute_glom)
 str(absolute_df)
 
-#
+# With the command colorRampPalette we will create a palette. We choose eight
+# colors from the Dark2 palette and make a ramp with it. First we need to have
+# our Phylum column in the factor structure for this.
 absolute_df$Phylum <- as.factor(absolute_df$Phylum)
 phylum_colors_abs<- colorRampPalette(brewer.pal(8,"Dark2")) (length(levels(absolute_df$Phylum)))
 
-#
+# Now, we create the plot with the absolute abundance data
 absolute_plot <- ggplot(data= absolute_df, aes(x=Sample, y=Abundance, fill=Phylum))+ 
   geom_bar(aes(), stat="identity", position="stack")+
   scale_fill_manual(values = phylum_colors_abs)
 
-#
+# Now, we create the plot of the relative abundance
 percentages_df$Phylum <- as.factor(percentages_df$Phylum)
 phylum_colors_rel<- colorRampPalette(brewer.pal(8,"Dark2")) (length(levels(percentages_df$Phylum)))
 relative_plot <- ggplot(data=percentages_df, aes(x=Sample, y=Abundance, fill=Phylum))+ 
   geom_bar(aes(), stat="identity", position="stack")+
   scale_fill_manual(values = phylum_colors_rel)
+
+# We see both plots thanks to the | function from the library patchwork
 absolute_plot | relative_plot
+# Note: It is imposible to see due we have a lot of Phyla, we need to
+# group the less abundances groups.
 
-
-#
+# Group phyla with less than 0.5% of abundance
 percentages_df$Phylum <- as.character(percentages_df$Phylum) # Return the Phylum column to be of type character
 percentages_df$Phylum[percentages_df$Abundance < 0.5] <- "Phyla < 0.5% abund."
 unique(percentages_df$Phylum)
 
-#
+# Now we only display the abundance relative plor
 percentages_df$Phylum <- as.factor(percentages_df$Phylum)
 phylum_colors_rel<- colorRampPalette(brewer.pal(8,"Dark2")) (length(levels(percentages_df$Phylum)))
 relative_plot <- ggplot(data=percentages_df, aes(x=Sample, y=Abundance, fill=Phylum))+ 
   geom_bar(aes(), stat="identity", position="stack")+
   scale_fill_manual(values = phylum_colors_rel)
-absolute_plot | relative_plot
 
+# abundance relative plot to phyla level
+relative_plot
+
+### Now explore the genus level
+# First, group to genus level
+library("speedyseq")
+genus_glom <- tax_glom(percentages, taxrank = "Genus")
+
+# melt phyloseq object into a data.frame to manipulate the with packages like
+# ggplot2 or vegan
+genus_df <- psmelt(genus_glom)
+
+# Group less abundance groups
+genus_df$Genus[genus_df$Abundance < 10] <- "Genera < 10.0 abund"
+# Convert to factor and create palette
+genus_df$Genus <- as.factor(genus_df$Genus)
+genus_colors <- colorRampPalette(brewer.pal(8,"Dark2")) (length(levels(genus_df$Genus)))  
+
+# Plot relative abundance data to genus level
+plot_genus <- ggplot(data=genus_df, aes(x=Sample, y=Abundance, fill=Genus))+ 
+  geom_bar(aes(), stat="identity", position="stack")+
+  scale_fill_manual(values = genus_colors)
+plot_genus
 
