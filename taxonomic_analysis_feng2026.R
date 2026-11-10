@@ -9,6 +9,7 @@ library("phyloseq")
 library("ggplot2")
 library("RColorBrewer")
 library("patchwork")
+library("microbiome")
 
 # Setting working directory
 getwd()
@@ -62,6 +63,7 @@ merged_metagenomes
 sample_sums(merged_metagenomes)
 summary(merged_metagenomes@otu_table@.Data)
 
+### EXPLORING ALPHA DIVERSITY
 # Plot alpha diversity
 plot_richness(physeq = merged_metagenomes, 
               measures = c("Observed","Chao1","Shannon")) 
@@ -69,6 +71,71 @@ plot_richness(physeq = merged_metagenomes,
 # Extracting only observed richness
 plot_richness(physeq = merged_metagenomes, 
               measures = "Observed") 
+
+# Load the library knitr
+library(knitr)
+
+# Obteniendo los valores de las metricas de diversidad alfa
+div_feng = microbiome::alpha(merged_metagenomes, index = c("observed", "shannon"))
+kable(head(div_feng))
+View(div_feng)
+
+# get the metadata out as separate object
+ps.meta <- meta(merged_metagenomes)
+kable(head(ps.meta))
+
+# Add the rownames as a new colum for easy integration later.
+ps.meta$sam_name <- rownames(ps.meta)
+
+# Add the rownames to diversity table
+div_feng$sam_name <- rownames(div_feng)
+
+# merge these two data frames into one
+div.df <- merge(div_feng,ps.meta, by = "sam_name")
+
+# check the tables
+colnames(div.df)
+
+#Histograma
+hist(div.df$observed)
+hist(div.df$diversity_shannon)
+
+# #shapiro
+shapiro.test(div.df$observed)
+shapiro.test(div.df$diversity_shannon)
+
+
+##### VISUALIZATION  OF ALPHA DIVERSITY BY GROUP###
+# OBSERVED
+obs = ggplot(div.df, aes(x=Grupo, y=observed,
+                         fill=Tiempo)) +
+  geom_boxplot(alpha = 0.5)+
+  geom_jitter(position=position_jitter(0.2), size = 2)+
+  scale_shape_manual(values=c(1,19))+
+  labs(x="Group", y = "Observed Richness")+
+  theme_classic()+
+  scale_fill_discrete(name = "Time", 
+                      labels = c("B" = "Baseline",
+                                 "H" = "Harvest"),
+                      palette = c("#E6AB02","#4D9221"))
+obs
+
+##### SHANNON
+sha = ggplot(div.df, aes(x=Grupo, y=diversity_shannon,
+                              fill=Tiempo)) +
+  geom_boxplot(alpha = 0.5)+
+  geom_jitter(position=position_jitter(0.2), size = 2)+
+  scale_shape_manual(values=c(1,19))+
+  labs(x="Group", y = "Shannon diversity index")+
+  theme_classic()+
+  scale_fill_discrete(name = "Time", 
+                                     labels = c("B" = "Baseline",
+                                                "H" = "Harvest"),
+                                     palette = c("#E6AB02","#4D9221"))
+sha
+
+
+### BETA DIVERSITY
 
 # Look if we have any non-identified reads.
 summary(merged_metagenomes@tax_table@.Data== "")
@@ -83,8 +150,6 @@ percentages <- transform_sample_counts(merged_metagenomes, function(x) x*100 / s
 
 # Visualize the first 6 lines
 head(percentages@otu_table@.Data)
-
-### BETA DIVERSITY
 # First we review all the possible distance metrics that Phyloseq can use:
 distanceMethodList
 
@@ -99,9 +164,13 @@ plot_ordination(physeq = percentages, ordination = meta_ord)
 
 # Now, we add variables from metadata
 # By grupo
-plot_ordination(physeq = percentages, ordination = meta_ord, color = "Grupo")
-# By tiempo
-plot_ordination(physeq = percentages, ordination = meta_ord, color = "Tiempo")
+plot_ordination(physeq = percentages, ordination = meta_ord,
+                color = "Grupo",
+                shape = "Tiempo")+
+  geom_point(size = 4, alpha = .80)+
+  theme_classic()
+  #stat_ellipse()
+
 
 ### Explore samples at specific taxonomic levels
 # We will start our exploration at the Phylum level. 
@@ -149,7 +218,7 @@ absolute_plot | relative_plot
 
 # Group phyla with less than 0.5% of abundance
 percentages_df$Phylum <- as.character(percentages_df$Phylum) # Return the Phylum column to be of type character
-percentages_df$Phylum[percentages_df$Abundance < 0.5] <- "Phyla < 0.5% abund."
+percentages_df$Phylum[percentages_df$Abundance < 0.3] <- "Phyla < 0.3% abund."
 unique(percentages_df$Phylum)
 
 # Now we only display the abundance relative plor
@@ -157,7 +226,8 @@ percentages_df$Phylum <- as.factor(percentages_df$Phylum)
 phylum_colors_rel<- colorRampPalette(brewer.pal(8,"Dark2")) (length(levels(percentages_df$Phylum)))
 relative_plot <- ggplot(data=percentages_df, aes(x=Sample, y=Abundance, fill=Phylum))+ 
   geom_bar(aes(), stat="identity", position="stack")+
-  scale_fill_manual(values = phylum_colors_rel)
+  scale_fill_manual(values = phylum_colors_rel)+
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5))
 
 # abundance relative plot to phyla level
 relative_plot
@@ -180,6 +250,7 @@ genus_colors <- colorRampPalette(brewer.pal(8,"Dark2")) (length(levels(genus_df$
 # Plot relative abundance data to genus level
 plot_genus <- ggplot(data=genus_df, aes(x=Sample, y=Abundance, fill=Genus))+ 
   geom_bar(aes(), stat="identity", position="stack")+
-  scale_fill_manual(values = genus_colors)
+  scale_fill_manual(values = genus_colors)+
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5))
 plot_genus
 
